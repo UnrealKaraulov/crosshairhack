@@ -1,23 +1,36 @@
 #include <Windows.h>
 #include <filesystem>
 std::string rawname;
+HMODULE loaded_library;
+HANDLE thread;
 
 DWORD WINAPI dwMainThread(LPVOID)
 {
+	Sleep(1000);
 	LoadLibraryA(rawname.c_str());
 	return TRUE;
 }
 
-HRESULT __stdcall DllMain(HMODULE _hModule, DWORD dwReason, LPVOID lpReserved)
+char tmp[MAX_PATH + 1];
+BOOL WINAPI DllMain(
+	HINSTANCE hinstDLL,  // handle to DLL module
+	DWORD fdwReason,     // reason for calling function
+	LPVOID lpReserved)  // reserved
 {
-	if (dwReason == DLL_PROCESS_ATTACH)
+	if (fdwReason == DLL_PROCESS_ATTACH)
 	{
-		char tmp[MAX_PATH + 1];
-		GetModuleFileNameA(_hModule, tmp, MAX_PATH + 1);
+		GetModuleFileNameA(hinstDLL, tmp, MAX_PATH + 1);
+		LoadLibraryA(tmp);
 		std::string tmp2 = tmp;
 		size_t lastindex = tmp2.find_last_of(".");
 		rawname = tmp2.substr(0, lastindex) + ".dll";
-		CreateThread(0, 0, dwMainThread, 0, 0, 0);
+		thread = CreateThread(0, 0, dwMainThread, 0, 0, 0);
+	}
+	if (fdwReason == DLL_PROCESS_DETACH)
+	{
+		TerminateThread(thread, 0);
+		if (loaded_library)
+			FreeLibrary(loaded_library);
 	}
 	return 1;
 }
